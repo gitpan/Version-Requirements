@@ -1,0 +1,343 @@
+use strict;
+use warnings;
+package Version::Requirements;
+our $VERSION = '0.100510';
+# ABSTRACT: a set of version requirements for a CPAN dist
+
+
+use Carp ();
+use Scalar::Util ();
+use version ();
+
+
+sub new {
+  my ($class) = @_;
+  return bless {} => $class;
+}
+
+sub _version_object {
+  my ($self, $version) = @_;
+
+  $version = (! defined $version)                ? version->parse(0)
+           : (! Scalar::Util::blessed($version)) ? version->parse($version)
+           :                                       $version;
+
+  return $version;
+}
+
+
+BEGIN {
+  for my $type (qw(minimum maximum exclusion exact_version)) {
+    my $method = "with_$type";
+    my $to_add = $type eq 'exact_version' ? $type : "add_$type";
+
+    my $code = sub {
+      my ($self, $name, $version) = @_;
+
+      $version = $self->_version_object( $version );
+
+      my $old = $self->{ $name } || 'Version::Requirements::_Spec::Range';
+
+      $self->{ $name } = $old->$method($version);
+    };
+    
+    no strict 'refs';
+    *$to_add = $code;
+  }
+}
+
+sub __modules   { keys %{ $_[ 0 ] } }
+sub __entry_for { $_[0]{ $_[1] }    }
+
+
+sub as_string_hash {
+  my ($self) = @_;
+
+  my %hash = map {; $_ => $self->{$_}->as_string } keys %$self;
+
+  return \%hash;
+}
+
+{
+  package
+    Version::Requirements::_Spec::Exact;
+our $VERSION = '0.100510';
+  sub _new     { bless { version => $_[1] } => $_[0] }
+
+  sub _accepts { return $_[0]{version} == $_[1] }
+
+  sub as_string { return "== $_[0]{version}" }
+
+  sub with_exact_version {
+    my ($self, $version) = @_;
+
+    return $self if $self->_accepts($version);
+
+    Carp::confess("illegal requirements: unequal exact version specified");
+  }
+
+  sub with_minimum {
+    my ($self, $minimum) = @_;
+    return $self if $self->{version} >= $minimum;
+    Carp::confess("illegal requirements: minimum above exact specification");
+  }
+
+  sub with_maximum {
+    my ($self, $maximum) = @_;
+    return $self if $self->{version} <= $maximum;
+    Carp::confess("illegal requirements: maximum below exact specification");
+  }
+
+  sub with_exclusion {
+    my ($self, $exclusion) = @_;
+    return $self unless $exclusion == $self->{version};
+    Carp::confess("illegal requirements: excluded exact specification");
+  }
+}
+
+{
+  package
+    Version::Requirements::_Spec::Range;
+our $VERSION = '0.100510';
+
+  sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
+
+  sub as_string {
+    my ($self) = @_;
+
+    return 0 if ! keys %$self;
+
+    return "$self->{minimum}" if (keys %$self) == 1 and exists $self->{minimum};
+
+    my @parts;
+    push @parts, ">= $self->{minimum}" if exists $self->{minimum};
+    push @parts, "<= $self->{maximum}" if exists $self->{maximum};
+    push @parts, map {; "!= $_" } @{ $self->{exclusions} || [] };
+
+    return join q{, }, @parts;
+  }
+
+  sub with_exact_version {
+    my ($self, $version) = @_;
+    $self = $self->_self;
+
+    Carp::confess("illegal requirements: exact specification outside of range")
+      unless $self->_accepts($version);
+
+    return Version::Requirements::_Spec::Exact->_new($version);
+  }
+
+  sub _simplify {
+    my ($self) = @_;
+
+    if (defined $self->{minimum} and defined $self->{maximum}) {
+      if ($self->{minimum} == $self->{maximum}) {
+        Carp::confess("illegal requirements: excluded all values")
+          if grep { $_ == $self->{minimum} } @{ $self->{exclusions} || [] };
+
+        return Version::Requirements::_Spec::Exact->_new($self->{minimum})
+      }
+
+      Carp::confess("illegal requirements: minimum exceeds maximum")
+        if $self->{minimum} > $self->{maximum};
+    }
+
+    # eliminate irrelevant exclusions
+    if ($self->{exclusions}) {
+      my %seen;
+      @{ $self->{exclusions} } = grep {
+        (! defined $self->{minimum} or $_ >= $self->{minimum})
+        and
+        (! defined $self->{maximum} or $_ <= $self->{maximum})
+        and
+        ! $seen{$_}++
+      } @{ $self->{exclusions} };
+    }
+
+    return $self;
+  }
+
+  sub with_minimum {
+    my ($self, $minimum) = @_;
+    $self = $self->_self;
+
+    # If $minimum is false, it's undef or 0, which cannot be meaningful as a
+    # minimum.  -- rjbs, 2010-02-20
+    return $self unless $minimum;
+
+    if (defined (my $old_min = $self->{minimum})) {
+      $self->{minimum} = (sort { $b cmp $a } ($minimum, $old_min))[0];
+    } else {
+      $self->{minimum} = $minimum;
+    }
+
+    return $self->_simplify;
+  }
+
+  sub with_maximum {
+    my ($self, $maximum) = @_;
+    $self = $self->_self;
+
+    if (defined (my $old_max = $self->{maximum})) {
+      $self->{maximum} = (sort { $a cmp $b } ($maximum, $old_max))[0];
+    } else {
+      $self->{maximum} = $maximum;
+    }
+
+    return $self->_simplify;
+  }
+
+  sub with_exclusion {
+    my ($self, $exclusion) = @_;
+    $self = $self->_self;
+
+    push @{ $self->{exclusions} ||= [] }, $exclusion;
+
+    return $self->_simplify;
+  }
+
+  sub _accepts {
+    my ($self, $version) = @_;
+
+    return if defined $self->{minimum} and $version < $self->{minimum};
+    return if defined $self->{maximum} and $version > $self->{maximum};
+    return if defined $self->{exclusions}
+          and grep { $version == $_ } @{ $self->{exclusions} };
+
+    return 1;
+  }
+}
+
+1;
+
+__END__
+=pod
+
+=head1 NAME
+
+Version::Requirements - a set of version requirements for a CPAN dist
+
+=head1 VERSION
+
+version 0.100510
+
+=head1 SYNOPSIS
+
+  use Version::Requirements;
+
+  my $build_requires = Version::Requirements->new;
+
+  $build_requires->add_minimum('Library::Foo' => 1.208);
+
+  $build_requires->add_minimum('Library::Foo' => 2.602);
+
+  $build_requires->add_minimum('Module::Bar'  => 'v1.2.3');
+
+  $METAyml->{build_requires} = $build_requires->as_string_hash;
+
+=head1 DESCRIPTION
+
+A Version::Requirements object models a set of version constraints like those
+specified in the F<META.yml> or F<META.json> files in CPAN distributions.  It
+can be built up by adding more and more constraints, and it will reduce them to
+the simplest representation.
+
+Logically impossible constraints will be identified immediately by thrown
+exceptions.
+
+=head1 METHODS
+
+=head2 new
+
+  my $req = Version::Requirements->new;
+
+This returns a new Version::Requirements object.  It ignores any arguments
+given.
+
+=head2 add_minimum
+
+  $req->add_minimum( $module => $version );
+
+This adds a new minimum version requirement.  If the new requirement is
+redundant to the existing specification, this has no effect.
+
+Minimum requirements are inclusive.  C<$version> is required, along with any
+greater version number.
+
+=head2 add_maximum
+
+  $req->add_minimum( $module => $version );
+
+This adds a new maximum version requirement.  If the new requirement is
+redundant to the existing specification, this has no effect.
+
+Maximum requirements are inclusive.  No version strictly greater than the given
+version is allowed.
+
+=head2 add_exclusion
+
+  $req->add_exclusion( $module => $version );
+
+This adds a new excluded version.  For example, you might use these three
+method calls:
+
+  $req->add_minimum( $module => '1.00' );
+  $req->add_maximum( $module => '1.82' );
+
+  $req->add_exclusion( $module => '1.75' );
+
+Any version between 1.00 and 1.82 inclusive would be acceptable, except for
+1.75.
+
+=head2 exact_version
+
+  $req->exact_version( $module => $version );
+
+This sets the version required for the given module to I<exactly> the given
+version.  No other version would be considered acceptable.
+
+=head2 as_string_hash
+
+This returns a reference to a hash describing the requirements using the
+strings in the F<META.yml> specification.
+
+For example after the following program:
+
+  my $req = Version::Requirements->new;
+
+  $req->add_minimum('Version::Requirements' => 0.102);
+
+  $req->add_minimum('Library::Foo' => 1.208);
+
+  $req->add_maximum('Library::Foo' => 2.602);
+
+  $req->add_minimum('Module::Bar'  => 'v1.2.3');
+
+  $req->add_exclusion('Module::Bar'  => 'v1.2.8');
+
+  $req->exact_version('Xyzzy'  => '6.01');
+
+  my $hashref = $req->as_string_hash;
+
+C<$hashref> would contain:
+
+  {
+    'Version::Requirements' => '0.102',
+    'Library::Foo' => '>= 1.208, <= 2.206',
+    'Module::Bar'  => '>= v1.2.3, != v1.2.8',
+    'Xyzzy'        => '== 6.01',
+  }
+
+=head1 AUTHOR
+
+  Ricardo Signes <rjbs@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2010 by Ricardo Signes.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+=cut
+

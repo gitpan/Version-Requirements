@@ -1,0 +1,19 @@
+---
+abstract: 'a set of version requirements for a CPAN dist'
+author:
+  - 'Ricardo Signes <rjbs@cpan.org>'
+generated_by: 'Dist::Zilla version 1.100160'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Version-Requirements
+requires:
+  Carp: 0
+  ExtUtils::MakeMaker: 6.11
+  Scalar::Util: 0
+  Test::More: 0.88
+  version: 0
+resources:
+  repository: git://git.codesimply.com/Version-Requirements.git
+version: 0.100510
