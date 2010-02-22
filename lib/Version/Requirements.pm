@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 package Version::Requirements;
-our $VERSION = '0.100510';
+our $VERSION = '0.100520';
 # ABSTRACT: a set of version requirements for a CPAN dist
 
 
@@ -46,8 +46,41 @@ BEGIN {
   }
 }
 
-sub __modules   { keys %{ $_[ 0 ] } }
-sub __entry_for { $_[0]{ $_[1] }    }
+
+sub add_requirements {
+  my ($self, $req) = @_;
+
+  for my $module ($req->required_modules) {
+    my $modifiers = $req->__entry_for($module)->as_modifiers;
+    for my $modifier (@$modifiers) {
+      my ($method, @args) = @$modifier;
+      $self->$method($module => @args);
+    };
+  }
+
+  return $self;
+}
+
+
+sub clear_requirement {
+  my ($self, $module) = @_;
+  delete $self->{ $module };
+}
+
+
+sub required_modules { keys %{ $_[ 0 ] } }
+
+
+sub clone {
+  my ($self) = @_;
+  my $new = (ref $self)->new;
+
+  return $new->add_requirements($self);
+}
+
+sub __entry_for {
+  $_[0]{ $_[1] }
+}
 
 
 sub as_string_hash {
@@ -58,15 +91,53 @@ sub as_string_hash {
   return \%hash;
 }
 
+
+my %methods_for_op = (
+  '==' => [ qw(exact_version) ],
+  '!=' => [ qw(add_exclusion) ],
+  '>=' => [ qw(add_minimum)   ],
+  '<=' => [ qw(add_maximum)   ],
+  '>'  => [ qw(add_minimum add_exclusion) ],
+  '<'  => [ qw(add_maximum add_exclusion) ],
+);
+
+sub from_string_hash {
+  my ($class, $hash) = @_;
+
+  my $self = $class->new;
+
+  for my $module (keys %$hash) {
+    my @parts = split qr{\s*,\s*}, $hash->{ $module };
+    for my $part (@parts) {
+      my ($op, $ver) = split /\s+/, $part, 2;
+
+      if (! defined $ver) {
+        $self->add_minimum($module => $op);
+      } else {
+        Carp::confess("illegal requirement string: $hash->{ $module }")
+          unless my $methods = $methods_for_op{ $op };
+
+        $self->$_($module => $ver) for @$methods;
+      }
+    }
+  }
+
+  return $self;
+}
+
+##############################################################
+
 {
   package
     Version::Requirements::_Spec::Exact;
-our $VERSION = '0.100510';
+our $VERSION = '0.100520';
   sub _new     { bless { version => $_[1] } => $_[0] }
 
   sub _accepts { return $_[0]{version} == $_[1] }
 
   sub as_string { return "== $_[0]{version}" }
+
+  sub as_modifiers { return [ [ exact_version => $_[0]{version} ] ] }
 
   sub with_exact_version {
     my ($self, $version) = @_;
@@ -95,12 +166,23 @@ our $VERSION = '0.100510';
   }
 }
 
+##############################################################
+
 {
   package
     Version::Requirements::_Spec::Range;
-our $VERSION = '0.100510';
+our $VERSION = '0.100520';
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
+
+  sub as_modifiers {
+    my ($self) = @_;
+    my @mods;
+    push @mods, [ add_minimum => $self->{minimum} ] if exists $self->{minimum};
+    push @mods, [ add_maximum => $self->{maximum} ] if exists $self->{maximum};
+    push @mods, map {; [ add_exclusion => $_ ] } @{$self->{exclusions} || []};
+    return \@mods;
+  }
 
   sub as_string {
     my ($self) = @_;
@@ -219,7 +301,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.100510
+version 0.100520
 
 =head1 SYNOPSIS
 
@@ -296,6 +378,32 @@ Any version between 1.00 and 1.82 inclusive would be acceptable, except for
 This sets the version required for the given module to I<exactly> the given
 version.  No other version would be considered acceptable.
 
+=head2 add_requirements
+
+  $req->add_requirements( $another_req_object );
+
+This method adds all the requirements in the given Version::Requirements object
+to the requirements object on which it was called.  If there are any conflicts,
+an exception is thrown.
+
+=head2 clear_requirement
+
+  $req->clear_requirement( $module );
+
+This removes the requirement for a given module from the object.
+
+=head2 required_modules
+
+This method returns a list of all the modules for which requirements have been
+specified.
+
+=head2 clone
+
+  $req->clone;
+
+This method returns a clone of the invocant.  The clone and the original object
+can then be changed independent of one another.
+
 =head2 as_string_hash
 
 This returns a reference to a hash describing the requirements using the
@@ -327,6 +435,14 @@ C<$hashref> would contain:
     'Module::Bar'  => '>= v1.2.3, != v1.2.8',
     'Xyzzy'        => '== 6.01',
   }
+
+=head2 from_string_hash
+
+  my $req = Version::Requirements->from_string_hash( \%hash );
+
+This is an alternate constructor for a Version::Requirements object.  It takes
+a hash of module names and version requirement strings and returns a new
+Version::Requirements object.
 
 =head1 AUTHOR
 

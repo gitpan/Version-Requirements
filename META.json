@@ -2,12 +2,12 @@
    "resources" : {
       "repository" : "git://git.codesimply.com/Version-Requirements.git"
    },
-   "generated_by" : "Dist::Zilla version 1.100160",
+   "generated_by" : "Dist::Zilla version 1.100520",
    "meta-spec" : {
       "version" : 1.4,
       "url" : "http://module-build.sourceforge.net/META-spec-v1.4.html"
    },
-   "version" : "0.100510",
+   "version" : "0.100520",
    "name" : "Version-Requirements",
    "author" : [
       "Ricardo Signes <rjbs@cpan.org>"
