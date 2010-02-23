@@ -2,7 +2,6 @@ use strict;
 use warnings;
 
 use Version::Requirements;
-use version;
 
 use Test::More 0.88;
 
@@ -38,18 +37,23 @@ sub dies_ok (&@) {
     },
     "some basic minimums",
   );
+
+  ok($req->is_simple, "just minimums? simple");
 }
 
 {
   my $req = Version::Requirements->new;
   $req->add_maximum(Foo => 1);
   is_deeply($req->as_string_hash, { Foo => '<= 1' }, "max only");
+
+  ok(! $req->is_simple, "maximums? not simple");
 }
 
 {
   my $req = Version::Requirements->new;
   $req->add_exclusion(Foo => 1);
   $req->add_exclusion(Foo => 2);
+
   # Why would you ever do this?? -- rjbs, 2010-02-20
   is_deeply($req->as_string_hash, { Foo => '!= 1, != 2' }, "excl only");
 }
@@ -100,9 +104,6 @@ sub dies_ok (&@) {
 }
 
 {
-  # ATTENTION
-  # This might change in the future to generate '> 1, <= 2'
-  # but there is no need to.  Just do not rely on it too much.
   my $req = Version::Requirements->new;
 
   $req->add_minimum(Foo => 1);
@@ -112,7 +113,7 @@ sub dies_ok (&@) {
   is_deeply(
     $req->as_string_hash,
     {
-      Foo => '>= 1, <= 2, != 1',
+      Foo => '> 1, <= 2',
     },
     "we can exclude an endpoint",
   );
@@ -167,6 +168,25 @@ sub dies_ok (&@) {
       'Foo' => '== 1',
     },
     "if min==max, becomes exact requirement",
+  );
+}
+
+{
+  my $req = Version::Requirements->new;
+  $req->add_minimum(Foo => 1);
+  $req->add_exclusion(Foo => 0);
+  $req->add_maximum(Foo => 3);
+  $req->add_exclusion(Foo => 4);
+
+  $req->add_exclusion(Foo => 2);
+  $req->add_exclusion(Foo => 2);
+
+  is_deeply(
+    $req->as_string_hash,
+    {
+      Foo => '>= 1, <= 3, != 2',
+    },
+    'test exclusion-skipping',
   );
 }
 

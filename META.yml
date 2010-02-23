@@ -16,4 +16,4 @@ requires:
   version: 0
 resources:
   repository: git://git.codesimply.com/Version-Requirements.git
-version: 0.100520
+version: 0.100530

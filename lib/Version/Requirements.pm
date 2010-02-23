@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 package Version::Requirements;
-our $VERSION = '0.100520';
+our $VERSION = '0.100530';
 # ABSTRACT: a set of version requirements for a CPAN dist
 
 
@@ -39,6 +39,8 @@ BEGIN {
       my $old = $self->{ $name } || 'Version::Requirements::_Spec::Range';
 
       $self->{ $name } = $old->$method($version);
+
+      return $self;
     };
     
     no strict 'refs';
@@ -65,6 +67,8 @@ sub add_requirements {
 sub clear_requirement {
   my ($self, $module) = @_;
   delete $self->{ $module };
+
+  return $self;
 }
 
 
@@ -80,6 +84,17 @@ sub clone {
 
 sub __entry_for {
   $_[0]{ $_[1] }
+}
+
+
+sub is_simple {
+  my ($self) = @_;
+  for my $module ($self->required_modules) {
+    # XXX: This is a complete hack, but also entirely correct.
+    return if $self->__entry_for($module)->as_string =~ /\s/;
+  }
+
+  return 1;
 }
 
 
@@ -130,7 +145,7 @@ sub from_string_hash {
 {
   package
     Version::Requirements::_Spec::Exact;
-our $VERSION = '0.100520';
+our $VERSION = '0.100530';
   sub _new     { bless { version => $_[1] } => $_[0] }
 
   sub _accepts { return $_[0]{version} == $_[1] }
@@ -171,7 +186,7 @@ our $VERSION = '0.100520';
 {
   package
     Version::Requirements::_Spec::Range;
-our $VERSION = '0.100520';
+our $VERSION = '0.100530';
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
 
@@ -191,10 +206,27 @@ our $VERSION = '0.100520';
 
     return "$self->{minimum}" if (keys %$self) == 1 and exists $self->{minimum};
 
+    my @exclusions = @{ $self->{exclusions} || [] };
+
     my @parts;
-    push @parts, ">= $self->{minimum}" if exists $self->{minimum};
-    push @parts, "<= $self->{maximum}" if exists $self->{maximum};
-    push @parts, map {; "!= $_" } @{ $self->{exclusions} || [] };
+
+    for my $pair (
+      [ qw( >= > minimum ) ],
+      [ qw( <= < maximum ) ],
+    ) {
+      my ($op, $e_op, $k) = @$pair;
+      if (exists $self->{$k}) {
+        my @new_exclusions = grep { $_ != $self->{ $k } } @exclusions;
+        if (@new_exclusions == @exclusions) {
+          push @parts, "$op $self->{ $k }";
+        } else {
+          push @parts, "$e_op $self->{ $k }";
+          @exclusions = @new_exclusions;
+        }
+      }
+    }
+
+    push @parts, map {; "!= $_" } @exclusions;
 
     return join q{, }, @parts;
   }
@@ -301,7 +333,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.100520
+version 0.100530
 
 =head1 SYNOPSIS
 
@@ -346,6 +378,8 @@ redundant to the existing specification, this has no effect.
 Minimum requirements are inclusive.  C<$version> is required, along with any
 greater version number.
 
+This method returns the requirements object.
+
 =head2 add_maximum
 
   $req->add_minimum( $module => $version );
@@ -355,6 +389,8 @@ redundant to the existing specification, this has no effect.
 
 Maximum requirements are inclusive.  No version strictly greater than the given
 version is allowed.
+
+This method returns the requirements object.
 
 =head2 add_exclusion
 
@@ -371,12 +407,16 @@ method calls:
 Any version between 1.00 and 1.82 inclusive would be acceptable, except for
 1.75.
 
+This method returns the requirements object.
+
 =head2 exact_version
 
   $req->exact_version( $module => $version );
 
 This sets the version required for the given module to I<exactly> the given
 version.  No other version would be considered acceptable.
+
+This method returns the requirements object.
 
 =head2 add_requirements
 
@@ -386,11 +426,15 @@ This method adds all the requirements in the given Version::Requirements object
 to the requirements object on which it was called.  If there are any conflicts,
 an exception is thrown.
 
+This method returns the requirements object.
+
 =head2 clear_requirement
 
   $req->clear_requirement( $module );
 
 This removes the requirement for a given module from the object.
+
+This method returns the requirements object.
 
 =head2 required_modules
 
@@ -403,6 +447,11 @@ specified.
 
 This method returns a clone of the invocant.  The clone and the original object
 can then be changed independent of one another.
+
+=head2 is_simple
+
+This method returns true if and only if all requirements are inclusive minimums
+-- that is, if their string expression is just the version number.
 
 =head2 as_string_hash
 

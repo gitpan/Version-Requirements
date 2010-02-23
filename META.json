@@ -7,7 +7,7 @@
       "version" : 1.4,
       "url" : "http://module-build.sourceforge.net/META-spec-v1.4.html"
    },
-   "version" : "0.100520",
+   "version" : "0.100530",
    "name" : "Version-Requirements",
    "author" : [
       "Ricardo Signes <rjbs@cpan.org>"
@@ -16,7 +16,7 @@
    "requires" : {
       "Scalar::Util" : 0,
       "Test::More" : "0.88",
-      "version" : "0",
+      "version" : 0,
       "ExtUtils::MakeMaker" : "6.11",
       "Carp" : 0
    },
