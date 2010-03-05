@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 package Version::Requirements;
-our $VERSION = '0.100530';
+our $VERSION = '0.100630';
 # ABSTRACT: a set of version requirements for a CPAN dist
 
 
@@ -145,7 +145,7 @@ sub from_string_hash {
 {
   package
     Version::Requirements::_Spec::Exact;
-our $VERSION = '0.100530';
+our $VERSION = '0.100630';
   sub _new     { bless { version => $_[1] } => $_[0] }
 
   sub _accepts { return $_[0]{version} == $_[1] }
@@ -186,7 +186,7 @@ our $VERSION = '0.100530';
 {
   package
     Version::Requirements::_Spec::Range;
-our $VERSION = '0.100530';
+our $VERSION = '0.100630';
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
 
@@ -275,10 +275,6 @@ our $VERSION = '0.100530';
     my ($self, $minimum) = @_;
     $self = $self->_self;
 
-    # If $minimum is false, it's undef or 0, which cannot be meaningful as a
-    # minimum.  -- rjbs, 2010-02-20
-    return $self unless $minimum;
-
     if (defined (my $old_min = $self->{minimum})) {
       $self->{minimum} = (sort { $b cmp $a } ($minimum, $old_min))[0];
     } else {
@@ -333,7 +329,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.100530
+version 0.100630
 
 =head1 SYNOPSIS
 
@@ -382,7 +378,7 @@ This method returns the requirements object.
 
 =head2 add_maximum
 
-  $req->add_minimum( $module => $version );
+  $req->add_maximum( $module => $version );
 
 This adds a new maximum version requirement.  If the new requirement is
 redundant to the existing specification, this has no effect.

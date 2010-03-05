@@ -14,18 +14,18 @@ my %WriteMakefileArgs = (
                                  },
                        'NAME' => 'Version::Requirements',
                        'DISTNAME' => 'Version-Requirements',
+                       'CONFIGURE_REQUIRES' => {
+                                                 'ExtUtils::MakeMaker' => '6.11'
+                                               },
                        'AUTHOR' => 'Ricardo Signes <rjbs@cpan.org>',
+                       'BUILD_REQUIRES' => {},
                        'ABSTRACT' => 'a set of version requirements for a CPAN dist',
                        'EXE_FILES' => [],
-                       'VERSION' => '0.100530',
-                       'LICENSE' => 'perl',
+                       'VERSION' => '0.100630',
                        'PREREQ_PM' => {
-                                        'Test::More' => '0.88',
-                                        'Scalar::Util' => 0,
-                                        'ExtUtils::MakeMaker' => '6.11',
-                                        'version' => 0,
-                                        'Carp' => 0
-                                      }
+                                        'Test::More' => '0.88'
+                                      },
+                       'LICENSE' => 'perl'
                      );
 
 

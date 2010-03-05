@@ -2,24 +2,24 @@
    "resources" : {
       "repository" : "git://git.codesimply.com/Version-Requirements.git"
    },
-   "generated_by" : "Dist::Zilla version 1.100520",
    "meta-spec" : {
       "version" : 1.4,
       "url" : "http://module-build.sourceforge.net/META-spec-v1.4.html"
    },
-   "version" : "0.100530",
+   "generated_by" : "Dist::Zilla version 1.100630",
+   "version" : "0.100630",
    "name" : "Version-Requirements",
    "author" : [
       "Ricardo Signes <rjbs@cpan.org>"
    ],
    "license" : "perl",
+   "build_requires" : {},
    "requires" : {
-      "Scalar::Util" : 0,
-      "Test::More" : "0.88",
-      "version" : 0,
-      "ExtUtils::MakeMaker" : "6.11",
-      "Carp" : 0
+      "Test::More" : "0.88"
    },
-   "abstract" : "a set of version requirements for a CPAN dist"
+   "abstract" : "a set of version requirements for a CPAN dist",
+   "configure_requires" : {
+      "ExtUtils::MakeMaker" : "6.11"
+   }
 }
 
