@@ -6,8 +6,8 @@
       "version" : 1.4,
       "url" : "http://module-build.sourceforge.net/META-spec-v1.4.html"
    },
-   "generated_by" : "Dist::Zilla version 1.100630",
-   "version" : "0.100630",
+   "generated_by" : "Dist::Zilla version 1.100660",
+   "version" : "0.100660",
    "name" : "Version-Requirements",
    "author" : [
       "Ricardo Signes <rjbs@cpan.org>"
@@ -15,7 +15,10 @@
    "license" : "perl",
    "build_requires" : {},
    "requires" : {
-      "Test::More" : "0.88"
+      "Scalar::Util" : "0",
+      "Test::More" : "0.88",
+      "version" : "0.77",
+      "Carp" : "0"
    },
    "abstract" : "a set of version requirements for a CPAN dist",
    "configure_requires" : {

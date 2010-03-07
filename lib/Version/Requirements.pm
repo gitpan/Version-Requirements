@@ -1,13 +1,13 @@
 use strict;
 use warnings;
 package Version::Requirements;
-our $VERSION = '0.100630';
+our $VERSION = '0.100660';
 # ABSTRACT: a set of version requirements for a CPAN dist
 
 
 use Carp ();
 use Scalar::Util ();
-use version ();
+use version 0.77 (); # the ->parse method
 
 
 sub new {
@@ -145,7 +145,7 @@ sub from_string_hash {
 {
   package
     Version::Requirements::_Spec::Exact;
-our $VERSION = '0.100630';
+our $VERSION = '0.100660';
   sub _new     { bless { version => $_[1] } => $_[0] }
 
   sub _accepts { return $_[0]{version} == $_[1] }
@@ -186,7 +186,7 @@ our $VERSION = '0.100630';
 {
   package
     Version::Requirements::_Spec::Range;
-our $VERSION = '0.100630';
+our $VERSION = '0.100660';
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
 
@@ -329,7 +329,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.100630
+version 0.100660
 
 =head1 SYNOPSIS
 

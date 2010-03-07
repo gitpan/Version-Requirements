@@ -21,9 +21,12 @@ my %WriteMakefileArgs = (
                        'BUILD_REQUIRES' => {},
                        'ABSTRACT' => 'a set of version requirements for a CPAN dist',
                        'EXE_FILES' => [],
-                       'VERSION' => '0.100630',
+                       'VERSION' => '0.100660',
                        'PREREQ_PM' => {
-                                        'Test::More' => '0.88'
+                                        'Scalar::Util' => '0',
+                                        'Test::More' => '0.88',
+                                        'version' => '0.77',
+                                        'Carp' => '0'
                                       },
                        'LICENSE' => 'perl'
                      );
