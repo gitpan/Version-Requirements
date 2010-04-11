@@ -1,7 +1,9 @@
 use strict;
 use warnings;
 package Version::Requirements;
-our $VERSION = '0.100660';
+BEGIN {
+  $Version::Requirements::VERSION = '0.101010';
+}
 # ABSTRACT: a set of version requirements for a CPAN dist
 
 
@@ -36,7 +38,7 @@ BEGIN {
 
       $version = $self->_version_object( $version );
 
-      my $old = $self->{ $name } || 'Version::Requirements::_Spec::Range';
+      my $old = $self->{ $name } || 'Version::Requirements::_Range::Range';
 
       $self->{ $name } = $old->$method($version);
 
@@ -61,6 +63,16 @@ sub add_requirements {
   }
 
   return $self;
+}
+
+
+sub accepts_module {
+  my ($self, $module, $version) = @_;
+
+  $version = $self->_version_object( $version );
+
+  return 1 unless my $range = $self->__entry_for($module);
+  return $range->_accepts($version);
 }
 
 
@@ -144,8 +156,10 @@ sub from_string_hash {
 
 {
   package
-    Version::Requirements::_Spec::Exact;
-our $VERSION = '0.100660';
+    Version::Requirements::_Range::Exact;
+BEGIN {
+  $Version::Requirements::_Range::Exact::VERSION = '0.101010';
+}
   sub _new     { bless { version => $_[1] } => $_[0] }
 
   sub _accepts { return $_[0]{version} == $_[1] }
@@ -185,8 +199,10 @@ our $VERSION = '0.100660';
 
 {
   package
-    Version::Requirements::_Spec::Range;
-our $VERSION = '0.100660';
+    Version::Requirements::_Range::Range;
+BEGIN {
+  $Version::Requirements::_Range::Range::VERSION = '0.101010';
+}
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
 
@@ -238,7 +254,7 @@ our $VERSION = '0.100660';
     Carp::confess("illegal requirements: exact specification outside of range")
       unless $self->_accepts($version);
 
-    return Version::Requirements::_Spec::Exact->_new($version);
+    return Version::Requirements::_Range::Exact->_new($version);
   }
 
   sub _simplify {
@@ -249,7 +265,7 @@ our $VERSION = '0.100660';
         Carp::confess("illegal requirements: excluded all values")
           if grep { $_ == $self->{minimum} } @{ $self->{exclusions} || [] };
 
-        return Version::Requirements::_Spec::Exact->_new($self->{minimum})
+        return Version::Requirements::_Range::Exact->_new($self->{minimum})
       }
 
       Carp::confess("illegal requirements: minimum exceeds maximum")
@@ -329,7 +345,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.100660
+version 0.101010
 
 =head1 SYNOPSIS
 
@@ -423,6 +439,21 @@ to the requirements object on which it was called.  If there are any conflicts,
 an exception is thrown.
 
 This method returns the requirements object.
+
+=head2 accepts_module
+
+  my $bool = $req->accepts_modules($module => $version);
+
+Given an module and version, this method returns true if the version
+specification for the module accepts the provided version.  In other words,
+given:
+
+  Module => '>= 1.00, < 2.00'
+
+We will accept 1.00 and 1.75 but not 0.50 or 2.00.
+
+For modules that do not appear in the requirements, this method will return
+true.
 
 =head2 clear_requirement
 

@@ -11,5 +11,4 @@ t/accepts.t
 t/basic.t
 t/from-hash.t
 t/merge.t
-t/release-pod-coverage.t
 t/release-pod-syntax.t
