@@ -2,7 +2,7 @@ use strict;
 use warnings;
 package Version::Requirements;
 BEGIN {
-  $Version::Requirements::VERSION = '0.101010';
+  $Version::Requirements::VERSION = '0.101020';
 }
 # ABSTRACT: a set of version requirements for a CPAN dist
 
@@ -38,9 +38,7 @@ BEGIN {
 
       $version = $self->_version_object( $version );
 
-      my $old = $self->{ $name } || 'Version::Requirements::_Range::Range';
-
-      $self->{ $name } = $old->$method($version);
+      $self->__modify_entry_for($name, $method, $version);
 
       return $self;
     };
@@ -78,13 +76,19 @@ sub accepts_module {
 
 sub clear_requirement {
   my ($self, $module) = @_;
-  delete $self->{ $module };
+
+  return $self unless $self->__entry_for($module);
+
+  Carp::confess("can't clear requirements on finalized requirements")
+    if $self->is_finalized;
+
+  delete $self->{requirements}{ $module };
 
   return $self;
 }
 
 
-sub required_modules { keys %{ $_[ 0 ] } }
+sub required_modules { keys %{ $_[0]{requirements} } }
 
 
 sub clone {
@@ -94,8 +98,24 @@ sub clone {
   return $new->add_requirements($self);
 }
 
-sub __entry_for {
-  $_[0]{ $_[1] }
+sub __entry_for     { $_[0]{requirements}{ $_[1] } }
+
+sub __modify_entry_for {
+  my ($self, $name, $method, $version) = @_;
+
+  my $fin = $self->is_finalized;
+  my $old = $self->__entry_for($name);
+
+  Carp::confess("can't add new requirements to finalized requirements")
+    if $fin and not $old;
+
+  my $new = ($old || 'Version::Requirements::_Range::Range')
+          ->$method($version);
+
+  Carp::confess("can't modify finalized requirements")
+    if $fin and $old->as_string ne $new->as_string;
+
+  $self->{requirements}{ $name } = $new;
 }
 
 
@@ -110,10 +130,17 @@ sub is_simple {
 }
 
 
+sub is_finalized { $_[0]{finalized} }
+
+
+sub finalize { $_[0]{finalized} = 1 }
+
+
 sub as_string_hash {
   my ($self) = @_;
 
-  my %hash = map {; $_ => $self->{$_}->as_string } keys %$self;
+  my %hash = map {; $_ => $self->{requirements}{$_}->as_string }
+             $self->required_modules;
 
   return \%hash;
 }
@@ -158,7 +185,7 @@ sub from_string_hash {
   package
     Version::Requirements::_Range::Exact;
 BEGIN {
-  $Version::Requirements::_Range::Exact::VERSION = '0.101010';
+  $Version::Requirements::_Range::Exact::VERSION = '0.101020';
 }
   sub _new     { bless { version => $_[1] } => $_[0] }
 
@@ -168,29 +195,33 @@ BEGIN {
 
   sub as_modifiers { return [ [ exact_version => $_[0]{version} ] ] }
 
+  sub _clone {
+    (ref $_[0])->_new( version->new( $_[0]{version} ) )
+  }
+
   sub with_exact_version {
     my ($self, $version) = @_;
 
-    return $self if $self->_accepts($version);
+    return $self->_clone if $self->_accepts($version);
 
     Carp::confess("illegal requirements: unequal exact version specified");
   }
 
   sub with_minimum {
     my ($self, $minimum) = @_;
-    return $self if $self->{version} >= $minimum;
+    return $self->_clone if $self->{version} >= $minimum;
     Carp::confess("illegal requirements: minimum above exact specification");
   }
 
   sub with_maximum {
     my ($self, $maximum) = @_;
-    return $self if $self->{version} <= $maximum;
+    return $self->_clone if $self->{version} <= $maximum;
     Carp::confess("illegal requirements: maximum below exact specification");
   }
 
   sub with_exclusion {
     my ($self, $exclusion) = @_;
-    return $self unless $exclusion == $self->{version};
+    return $self->_clone unless $exclusion == $self->{version};
     Carp::confess("illegal requirements: excluded exact specification");
   }
 }
@@ -201,10 +232,26 @@ BEGIN {
   package
     Version::Requirements::_Range::Range;
 BEGIN {
-  $Version::Requirements::_Range::Range::VERSION = '0.101010';
+  $Version::Requirements::_Range::Range::VERSION = '0.101020';
 }
 
   sub _self { ref($_[0]) ? $_[0] : (bless { } => $_[0]) }
+
+  sub _clone {
+    return (bless { } => $_[0]) unless ref $_[0];
+
+    my ($s) = @_;
+    my %guts = (
+      (exists $s->{minimum} ? (minimum => version->new($s->{minimum})) : ()),
+      (exists $s->{maximum} ? (maximum => version->new($s->{maximum})) : ()),
+
+      (exists $s->{exclusions}
+        ? (exclusions => [ map { version->new($_) } @{ $s->{exclusions} } ])
+        : ()),
+    );
+
+    bless \%guts => ref($s);
+  }
 
   sub as_modifiers {
     my ($self) = @_;
@@ -249,7 +296,7 @@ BEGIN {
 
   sub with_exact_version {
     my ($self, $version) = @_;
-    $self = $self->_self;
+    $self = $self->_clone;
 
     Carp::confess("illegal requirements: exact specification outside of range")
       unless $self->_accepts($version);
@@ -289,7 +336,7 @@ BEGIN {
 
   sub with_minimum {
     my ($self, $minimum) = @_;
-    $self = $self->_self;
+    $self = $self->_clone;
 
     if (defined (my $old_min = $self->{minimum})) {
       $self->{minimum} = (sort { $b cmp $a } ($minimum, $old_min))[0];
@@ -302,7 +349,7 @@ BEGIN {
 
   sub with_maximum {
     my ($self, $maximum) = @_;
-    $self = $self->_self;
+    $self = $self->_clone;
 
     if (defined (my $old_max = $self->{maximum})) {
       $self->{maximum} = (sort { $a cmp $b } ($maximum, $old_max))[0];
@@ -315,7 +362,7 @@ BEGIN {
 
   sub with_exclusion {
     my ($self, $exclusion) = @_;
-    $self = $self->_self;
+    $self = $self->_clone;
 
     push @{ $self->{exclusions} ||= [] }, $exclusion;
 
@@ -345,7 +392,7 @@ Version::Requirements - a set of version requirements for a CPAN dist
 
 =head1 VERSION
 
-version 0.101010
+version 0.101020
 
 =head1 SYNOPSIS
 
@@ -479,6 +526,20 @@ can then be changed independent of one another.
 
 This method returns true if and only if all requirements are inclusive minimums
 -- that is, if their string expression is just the version number.
+
+=head2 is_finalized
+
+This method returns true if the requirements have been finalized by having the
+C<finalize> method called on them.
+
+=head2 finalize
+
+This method marks the requirements finalized.  Subsequent attempts to change
+the requirements will be fatal, I<if> they would result in a change.  If they
+would not alter the requirements, they have no effect.
+
+If a finalized set of requirements is cloned, the cloned requirements are not
+also finalized.
 
 =head2 as_string_hash
 

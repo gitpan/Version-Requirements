@@ -19,13 +19,9 @@ requires:
   version: 0.77
 resources:
   repository: git://git.codesimply.com/Version-Requirements.git
-version: 0.101010
+version: 0.101020
 x_Dist_Zilla:
   plugins:
-    -
-      class: Dist::Zilla::Plugin::TestRelease
-      name: '@RJBS/TestRelease'
-      version: 2.100991
     -
       class: Dist::Zilla::Plugin::GatherDir
       name: '@RJBS/@Basic/GatherDir'

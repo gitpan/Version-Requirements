@@ -23,7 +23,7 @@ my %WriteMakefileArgs = (
                                            },
                        'ABSTRACT' => 'a set of version requirements for a CPAN dist',
                        'EXE_FILES' => [],
-                       'VERSION' => '0.101010',
+                       'VERSION' => '0.101020',
                        'PREREQ_PM' => {
                                         'Scalar::Util' => '0',
                                         'version' => '0.77',
